@@ -1,10 +1,14 @@
-zstyle ':z4h:'                auto-update      ask
-zstyle ':z4h:'                auto-update-days 28
-zstyle ':z4h:*'               channel          testing
-zstyle ':z4h:autosuggestions' forward-char     partial-accept
-zstyle ':z4h:autosuggestions' end-of-line      partial-accept
-zstyle ':z4h:term-title:ssh'  precmd           ${${${Z4H_SSH##*:}//\%/%%}:-%m}': %~'
-zstyle ':z4h:term-title:ssh'  preexec          ${${${Z4H_SSH##*:}//\%/%%}:-%m}': ${1//\%/%%}'
+zstyle ':z4h:'                  auto-update        no
+zstyle ':z4h:'                  auto-update-days   28
+zstyle ':z4h:*'                 channel            testing
+zstyle ':z4h:autosuggestions'   forward-char       partial-accept
+zstyle ':z4h:autosuggestions'   end-of-line        partial-accept
+zstyle ':z4h:term-title:ssh'    precmd             ${${${Z4H_SSH##*:}//\%/%%}:-%m}': %~'
+zstyle ':z4h:term-title:ssh'    preexec            ${${${Z4H_SSH##*:}//\%/%%}:-%m}': ${1//\%/%%}'
+zstyle ':z4h:command-not-found' to-file            "$TTY"
+zstyle ':z4h:'                  iterm2-integration yes
+
+# zstyle :z4h: start-tmux no
 
 () {
   local var proj
@@ -23,7 +27,8 @@ z4h install romkatv/archive romkatv/zsh-prompt-benchmark
 
 z4h init || return
 
-setopt glob_dots
+setopt glob_dots magic_equal_subst no_multi_os no_local_loops
+setopt rm_star_silent rc_quotes glob_star_short
 
 ulimit -c $(((4 << 30) / 512))  # 4GB
 
@@ -43,6 +48,7 @@ export GPG_TTY=$TTY
 export PAGER=less
 export GOPATH=$HOME/go
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export HOMEBREW_NO_ANALYTICS=1
 
 if (( $+z4h_win_env )); then
   export NO_AT_BRIDGE=1
@@ -68,11 +74,13 @@ fi
 }
 
 function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
+
 compdef _directories md
+compdef _default     open
 
 zstyle    ':z4h:ssh:*' enable           yes
 zstyle    ':z4h:ssh:*' ssh-command      command ssh
-zstyle    ':z4h:ssh:*' send-extra-files '~/.zshenv-private' '~/.zshrc-private' '~/bin/slurp' '~/bin/barf'
+zstyle    ':z4h:ssh:*' send-extra-files '~/.zshenv-private' '~/.zshrc-private' '~/.config/htop/htoprc'
 zstyle -e ':z4h:ssh:*' retrieve-history 'reply=($ZDOTDIR/.zsh_history.${(%):-%m}:$z4h_ssh_host)'
 
 function z4h-ssh-configure() {
@@ -93,7 +101,7 @@ fi
 
 () {
   local key keys=(
-    "^A"   "^B"   "^D"   "^E"   "^F"   "^N"   "^O"   "^P"   "^Q"   "^S"   "^T"   "^W"   "^Y"
+    "^A"   "^B"   "^D"   "^E"   "^F"   "^N"   "^O"   "^P"   "^Q"   "^S"   "^T"   "^W"
     "^X*"  "^X="  "^X?"  "^XC"  "^XG"  "^Xa"  "^Xc"  "^Xd"  "^Xe"  "^Xg"  "^Xh"  "^Xm"  "^Xn"
     "^Xr"  "^Xs"  "^Xt"  "^Xu"  "^X~"  "^[ "  "^[!"  "^['"  "^[,"  "^[-"  "^[."  "^[0"  "^[1"
     "^[2"  "^[3"  "^[4"  "^[5"  "^[6"  "^[7"  "^[8"  "^[9"  "^[<"  "^[>"  "^[?"  "^[A"  "^[B"
@@ -106,37 +114,46 @@ fi
   done
 }
 
-z4h bindkey z4h-backward-kill-word              Ctrl+Backspace
-z4h bindkey z4h-backward-kill-zword             Ctrl+Alt+Backspace
-z4h bindkey z4h-cd-back                         Alt+Left
-z4h bindkey z4h-cd-forward                      Alt+Right
-z4h bindkey z4h-cd-up                           Alt+Up
-z4h bindkey z4h-cd-down                         Alt+Down
+z4h bindkey z4h-backward-kill-word  Ctrl+Backspace
+z4h bindkey z4h-backward-kill-zword Ctrl+Alt+Backspace
+z4h bindkey z4h-cd-back             Alt+Left
+z4h bindkey z4h-cd-forward          Alt+Right
+z4h bindkey z4h-cd-up               Alt+Up
+z4h bindkey z4h-cd-down             Alt+Down
 
 if (( $+functions[toggle-dotfiles] )); then
   zle -N toggle-dotfiles
   z4h bindkey toggle-dotfiles Ctrl+P
 fi
 
-zstyle ':z4h:fzf-complete'                  fzf-bindings       tab:repeat
+zstyle ':z4h:fzf-complete'                   fzf-bindings       tab:repeat
+zstyle ':z4h:cd-down'                        fzf-bindings       tab:repeat
 
-zstyle ':zle:up-line-or-beginning-search'   leave-cursor       no
-zstyle ':zle:down-line-or-beginning-search' leave-cursor       no
+zstyle ':zle:up-line-or-beginning-search'    leave-cursor       no
+zstyle ':zle:down-line-or-beginning-search'  leave-cursor       no
 
-zstyle ':completion:*'                      sort               false
-zstyle ':completion:*:ls:*'                 list-dirs-first    true
-zstyle ':completion:*:ssh:argument-1:'      tag-order          hosts users
-zstyle ':completion:*:scp:argument-rest:'   tag-order          hosts files users
-zstyle ':completion:*:(ssh|scp):*:hosts'    hosts
+zstyle ':completion:*'                       sort               false
+zstyle ':completion:*:ls:*'                  list-dirs-first    true
+zstyle ':completion:*:ssh:argument-1:'       tag-order          hosts users
+zstyle ':completion:*:scp:argument-rest:'    tag-order          hosts files users
+zstyle ':completion:*:(ssh|scp|rdp):*:hosts' hosts
 
 alias ls="${aliases[ls]:-ls} -A"
 if [[ -n $commands[dircolors] && ${${:-ls}:c:A:t} != busybox* ]]; then
   alias ls="${aliases[ls]:-ls} --group-directories-first"
 fi
 
+[[ ${${:-grep}:c:A:t} == busybox* ]] || alias grep='() {
+  if [[ -t 1 ]]; then
+    \grep --color=always --exclude-dir={.bzr,CVS,.git,.hg,.svn} "$@" | tr -d "\r"
+  else
+    \grep --exclude-dir={.bzr,CVS,.git,.hg,.svn} "$@"
+  fi
+}'
+
 (( $+commands[tree]  )) && alias tree='tree -a -I .git --dirsfirst'
 (( $+commands[gedit] )) && alias gedit='gedit &>/dev/null'
-(( $+commands[rsync] )) && alias rsync='rsync -z --info=FLIST,COPY,DEL,REMOVE,SKIP,SYMSAFE,MISC,NAME,PROGRESS,STATS'
+(( $+commands[rsync] )) && alias rsync='rsync -rz --info=FLIST,COPY,DEL,REMOVE,SKIP,SYMSAFE,MISC,NAME,PROGRESS,STATS'
 (( $+commands[exa]   )) && alias exa='exa -ga --group-directories-first --time-style=long-iso --color-scale'
 
 if (( $+commands[xclip] && $#DISPLAY )); then

@@ -101,9 +101,13 @@ fi
 function install_packages() {
   local packages=(
     ascii
+    apt-transport-https
     autoconf
+    bfs
+    bsdutils
     bzip2
     build-essential
+    ca-certificates
     clang-format
     cmake
     command-not-found
@@ -114,6 +118,7 @@ function install_packages() {
     gawk
     gedit
     git
+    gnome-icon-theme
     gzip
     htop
     jsonnet
@@ -133,6 +138,7 @@ function install_packages() {
     python3
     python3-pip
     pigz
+    software-properties-common
     tree
     unrar
     unzip
@@ -163,6 +169,32 @@ function install_b2() {
   sudo pip3 install --upgrade b2
 }
 
+function install_docker() {
+  if (( WSL )); then
+    local release
+    release="$(lsb_release -cs)"
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    sudo apt-key fingerprint 0EBFCD88
+    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu
+      $release
+      stable"
+    sudo apt-get update -y
+    sudo apt-get install -y docker-ce
+  else
+    sudo apt-get install -y docker.io
+  fi
+  sudo usermod -aG docker "$USER"
+  pip3 install --user docker-compose
+}
+
+function install_brew() {
+  local install
+  install="$(mktemp)"
+  curl -fsSLo "$install" https://raw.githubusercontent.com/Homebrew/install/master/install.sh
+  bash -- "$install" </dev/null
+  rm -- "$install"
+}
+
 # Install Visual Studio Code.
 function install_vscode() {
   (( !WSL )) || return 0
@@ -171,7 +203,7 @@ function install_vscode() {
   deb="$(mktemp)"
   curl -fsSL 'https://go.microsoft.com/fwlink/?LinkID=760868' >"$deb"
   sudo dpkg -i "$deb"
-  rm "$deb"
+  rm -- "$deb"
 }
 
 function install_exa() {
@@ -198,7 +230,7 @@ function install_ripgrep() {
 }
 
 function install_jc() {
-  local v="1.13.2"
+  local v="1.13.4"
   ! command -v jc &>/dev/null || [[ "$(jc -a | jq -r .version)" != "$v" ]] || return 0
   local deb
   deb="$(mktemp)"
@@ -208,7 +240,7 @@ function install_jc() {
 }
 
 function install_bat() {
-  local v="0.15.4"
+  local v="0.17.1"
   ! command -v bat &>/dev/null || [[ "$(bat --version)" != *" $v" ]] || return 0
   local deb
   deb="$(mktemp)"
@@ -218,7 +250,7 @@ function install_bat() {
 }
 
 function install_gh() {
-  local v="0.10.0"
+  local v="1.6.2"
   ! command -v gh &>/dev/null || [[ "$(gh --version)" != */v"$v" ]] || return 0
   local deb
   deb="$(mktemp)"
@@ -229,11 +261,6 @@ function install_gh() {
 
 function fix_locale() {
   sudo tee /etc/default/locale >/dev/null <<<'LC_ALL="C.UTF-8"'
-}
-
-function fix_docker() {
-  (( !WSL )) || return 0
-  sudo usermod -aG docker "$USER"
 }
 
 # Avoid clock snafu when dual-booting Windows and Linux.
@@ -388,6 +415,8 @@ umask g-w,o-w
 add_to_sudoers
 
 install_packages
+install_docker
+install_brew
 install_b2
 install_vscode
 install_ripgrep
@@ -402,7 +431,6 @@ enable_sshd
 disable_motd_news
 
 fix_locale
-fix_docker
 fix_clock
 fix_shm
 fix_dbus
